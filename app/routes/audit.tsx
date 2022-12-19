@@ -26,7 +26,7 @@ export async function action({ request }: ActionArgs) {
   const result: AuditResult = { dep: [], dev: [], projectName: packageJson.name ?? 'Your report' };
 
   const { dependencies, devDependencies } = packageJson;
-  result.dep = await fetchPackageMetadata(dependencies ?? {}, 1);
+  result.dep = await fetchPackageMetadata(dependencies ?? {}, false, 1);
   result.dev = await fetchPackageMetadata(devDependencies ?? {}, true, 1);
 
   return result;
@@ -42,9 +42,11 @@ async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean
   while(batch.length) {
     // eslint-disable-next-line no-loop-func
     batch.forEach((k) => {
-      const d: AuditEntry = { name: k, version: deps[k], isDev, outdated: 'ok' };
-      result.push(d);
-      promises.push(attachNpmData(d));
+      const entry: AuditEntry = { name: k, version: deps[k], isDev, outdated: 'ok' };
+      promises.push((async () => {
+        const populated = await attachNpmData(entry)
+        result.push(populated);
+      })());
     });
   
     await Promise.all(promises);
@@ -56,38 +58,40 @@ async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean
   return result;
 }
 
-async function attachNpmData(mutatedDep: AuditEntry) {
-  const dbResult = await findPackageByName(mutatedDep.name);
+async function attachNpmData(dep: AuditEntry): Promise<AuditEntry> {
+  const entry = { ...dep };
+  const dbResult = await findPackageByName(entry.name);
   const oneDayAgo = new Date();
   oneDayAgo.setDate(new Date().getDate() - 1);
 
   if (dbResult && dbResult.updatedAt > oneDayAgo) {
-    mutatedDep.latestVersion = dbResult.latestVersion;
-    mutatedDep.homepage = dbResult.homepage ?? undefined;
-    mutatedDep.repo = dbResult.repo ?? undefined;
-    mutatedDep.outdated = compareSemver(mutatedDep.version, mutatedDep.latestVersion);
+    entry.latestVersion = dbResult.latestVersion;
+    entry.homepage = dbResult.homepage ?? undefined;
+    entry.repo = dbResult.repo ?? undefined;
+    entry.outdated = compareSemver(entry.version, entry.latestVersion);
   } else {
     try {
-      const { data } = await axios.get(`https://registry.npmjs.org/${mutatedDep.name}`)
+      const { data } = await axios.get(`https://registry.npmjs.org/${entry.name}`)
       const latestVersion = data['dist-tags'].latest;
       await updateOrCreatePackage({ 
-        name: mutatedDep.name,
+        name: entry.name,
         latestVersion, 
         versions: Object.keys(data.versions).join(','),
         homepage: data.homepage,
         repo: data.repository?.url,
       });
-      mutatedDep.latestVersion = latestVersion;
-      mutatedDep.homepage = data.homepage;
-      mutatedDep.repo = data.repository?.url;
+      entry.latestVersion = latestVersion;
+      entry.homepage = data.homepage;
+      entry.repo = data.repository?.url;
     } catch (error) {
       console.error(error)
     }
   
-    if (mutatedDep.latestVersion) {
-      mutatedDep.outdated = compareSemver(mutatedDep.version, mutatedDep.latestVersion);
+    if (entry.latestVersion) {
+      entry.outdated = compareSemver(entry.version, entry.latestVersion);
     }
   }
+  return entry;
 }
 
 export default function Audit() {
