@@ -24,26 +24,35 @@ export async function action({ request }: ActionArgs) {
   const packageJson = JSON.parse(Object.fromEntries(body).packagejson as string) ?? {};
   
   const result: AuditResult = { dep: [], dev: [], projectName: packageJson.name ?? 'Your report' };
-  const requests: Promise<void>[] = [];
 
   const { dependencies, devDependencies } = packageJson;
-  if (dependencies) {
-    Object.keys(dependencies).forEach((p) => {
-      const d: AuditEntry = { name: p, version: dependencies[p], isDev: false, outdated: 'ok' };
-      result.dep.push(d);
-      requests.push(attachNpmData(d));
-    })
-  }
-  if (devDependencies) {
-    Object.keys(devDependencies).forEach((p) => {
-      const d: AuditEntry = { name: p, version: devDependencies[p], isDev: true, outdated: 'ok' };
-      result.dev.push(d);
-      requests.push(attachNpmData(d));
-    })
-  }
+  result.dep = await fetchPackageMetadata(dependencies ?? {});
+  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true);
 
-  await Promise.all(requests);
+  return result;
+}
 
+async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean = false, batchSize: number = 5) {
+  const packages = Object.keys(deps);
+  const result: AuditEntry[] = [];
+  let batch = packages.slice(0, batchSize);
+  let batchNum = 0;
+  let promises: Promise<void>[] = [];
+
+  while(batch.length) {
+    // eslint-disable-next-line no-loop-func
+    batch.forEach((k) => {
+      const d: AuditEntry = { name: k, version: deps[k], isDev, outdated: 'ok' };
+      result.push(d);
+      promises.push(attachNpmData(d));
+    });
+  
+    await Promise.all(promises);
+    batchNum++;
+    const offset = batchNum * batchSize;
+    batch = packages.slice(offset, offset + batchSize);
+    promises = [];
+  }
   return result;
 }
 
