@@ -10,8 +10,8 @@ export default function Index() {
       <p className="max-w-[800px] w-full pb-4">Yep, the npm cli already has commands for <Code>npm outdated</Code> and <Code>npm audit</Code>. So why bother?</p>
       
       <p className="max-w-[800px] w-full pb-4">
-        Well, <Code>npm audit</Code> is kinda <a href="https://overreacted.io/npm-audit-broken-by-design/" target="_blank" rel="noreferrer">broken</a>.
-        npm outdated is a useful tool but I found myself repeating the same steps every time I update dependencies:
+        Well, <Code>npm audit</Code> is kinda <a className="text-sky-600 underline" href="https://overreacted.io/npm-audit-broken-by-design/" target="_blank" rel="noreferrer">broken</a>.
+        <Code>npm outdated</Code> is a useful tool but I found myself repeating the same steps every time I update dependencies:
       </p>
 
       <ol className="max-w-[800px] w-full pb-4 list-decimal pl-10">

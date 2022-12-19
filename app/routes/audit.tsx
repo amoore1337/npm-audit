@@ -113,7 +113,11 @@ export default function Audit() {
 function PackageEntryForm({ loading }: { loading: boolean }) {
   return (
     <Form method="post" className="flex-grow w-full relative flex flex-col">
-      <TextArea name="packagejson" className="flex-grow font-mono bg-green-100 !border-green-500" />
+      <TextArea 
+        placeholder="Enter your package.json content. Only 'dependencies' and/or 'devDependencies' are required." 
+        name="packagejson" 
+        className="flex-grow font-mono bg-green-100 !border-green-500 placeholder:italic placeholder:text-green-600" 
+      />
       <div className="flex item-center justify-end pt-4">
         <Button variant="primary">{loading ? 'Loading...' : 'Submit'}</Button>
       </div>
