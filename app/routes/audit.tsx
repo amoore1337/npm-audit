@@ -26,8 +26,8 @@ export async function action({ request }: ActionArgs) {
   const result: AuditResult = { dep: [], dev: [], projectName: packageJson.name ?? 'Your report' };
 
   const { dependencies, devDependencies } = packageJson;
-  result.dep = await fetchPackageMetadata(dependencies ?? {});
-  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true);
+  result.dep = await fetchPackageMetadata(dependencies ?? {}, 1);
+  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true, 1);
 
   return result;
 }
