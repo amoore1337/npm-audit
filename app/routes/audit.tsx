@@ -58,18 +58,23 @@ async function attachNpmData(mutatedDep: AuditEntry) {
     mutatedDep.repo = dbResult.repo ?? undefined;
     mutatedDep.outdated = compareSemver(mutatedDep.version, mutatedDep.latestVersion);
   } else {
-    const { data } = await axios.get(`https://registry.npmjs.org/${mutatedDep.name}`)
-    const latestVersion = data['dist-tags'].latest;
-    await updateOrCreatePackage({ 
-      name: mutatedDep.name,
-      latestVersion, 
-      versions: Object.keys(data.versions).join(','),
-      homepage: data.homepage,
-      repo: data.repository?.url,
-    });
-    mutatedDep.latestVersion = latestVersion;
-    mutatedDep.homepage = data.homepage;
-    mutatedDep.repo = data.repository?.url;
+    try {
+      const { data } = await axios.get(`https://registry.npmjs.org/${mutatedDep.name}`)
+      const latestVersion = data['dist-tags'].latest;
+      await updateOrCreatePackage({ 
+        name: mutatedDep.name,
+        latestVersion, 
+        versions: Object.keys(data.versions).join(','),
+        homepage: data.homepage,
+        repo: data.repository?.url,
+      });
+      mutatedDep.latestVersion = latestVersion;
+      mutatedDep.homepage = data.homepage;
+      mutatedDep.repo = data.repository?.url;
+    } catch (error) {
+      console.error(error)
+    }
+  
     if (mutatedDep.latestVersion) {
       mutatedDep.outdated = compareSemver(mutatedDep.version, mutatedDep.latestVersion);
     }
