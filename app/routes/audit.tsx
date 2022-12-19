@@ -26,8 +26,8 @@ export async function action({ request }: ActionArgs) {
   const result: AuditResult = { dep: [], dev: [], projectName: packageJson.name ?? 'Your report' };
 
   const { dependencies, devDependencies } = packageJson;
-  result.dep = await fetchPackageMetadata(dependencies ?? {}, false, 1);
-  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true, 1);
+  result.dep = await fetchPackageMetadata(dependencies ?? {}, false);
+  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true);
 
   return result;
 }
@@ -71,7 +71,9 @@ async function attachNpmData(dep: AuditEntry): Promise<AuditEntry> {
     entry.outdated = compareSemver(entry.version, entry.latestVersion);
   } else {
     try {
-      const { data } = await axios.get(`https://registry.npmjs.org/${entry.name}`)
+      const { data } = await axios.get(`https://registry.npmjs.org/${entry.name}`, {
+        headers: { Accept: 'application/vnd.npm.install-v1+json' }, // Abbreviated metadata. Some packages data is > 70MB!!!!!
+      })
       const latestVersion = data['dist-tags'].latest;
       await updateOrCreatePackage({ 
         name: entry.name,
