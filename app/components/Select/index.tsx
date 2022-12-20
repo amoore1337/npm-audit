@@ -1,34 +1,40 @@
-import * as RadixSelect from '@radix-ui/react-select';
-import clsx from 'clsx';
-import { CheckIcon, ChevronDownIcon } from '@radix-ui/react-icons';
-import type { ReactNode } from 'react';
-import { forwardRef } from 'react';
+import * as RadixSelect from "@radix-ui/react-select";
+import clsx from "clsx";
+import { CheckIcon, ChevronDownIcon } from "@radix-ui/react-icons";
+import type { ReactNode } from "react";
+import { forwardRef } from "react";
 
 interface Props {
-  placeholder: string
-  value: string
-  onValueChange: (value: string) => void
-  children: ReactNode
-  className?: string
+  placeholder: string;
+  value: string;
+  onValueChange: (value: string) => void;
+  children: ReactNode;
+  className?: string;
 }
 
-export function Select({ placeholder, value, onValueChange, children, className }: Props) {
+export function Select({
+  placeholder,
+  value,
+  onValueChange,
+  children,
+  className,
+}: Props) {
   return (
     <RadixSelect.Root value={value} onValueChange={onValueChange}>
-      <RadixSelect.Trigger 
+      <RadixSelect.Trigger
         className={clsx(
-          'SelectTrigger hover:bg-green-100 text-green-600 data-[placeholder]:text-green-600 outline-none flex items-center rounded border bg-green-50 border-solid border-green-500 px-2 py-1',
-          className,
+          "SelectTrigger flex items-center rounded border border-solid border-green-500 bg-green-50 px-2 py-1 text-green-600 outline-none hover:bg-green-100 data-[placeholder]:text-green-600",
+          className
         )}
         aria-label={placeholder}
       >
         <RadixSelect.Value className="" placeholder="Select a fruit…" />
-        <RadixSelect.Icon className="text-green-500 ml-2">
+        <RadixSelect.Icon className="ml-2 text-green-500">
           <ChevronDownIcon />
         </RadixSelect.Icon>
       </RadixSelect.Trigger>
       <RadixSelect.Portal>
-        <RadixSelect.Content className="SelectContent bg-white rounded border border-solid border-green-500">
+        <RadixSelect.Content className="SelectContent rounded border border-solid border-green-500 bg-white">
           <RadixSelect.Viewport className="SelectViewport p-1">
             {children}
           </RadixSelect.Viewport>
@@ -38,22 +44,25 @@ export function Select({ placeholder, value, onValueChange, children, className 
   );
 }
 
-export const SelectItem = forwardRef<HTMLDivElement, RadixSelect.SelectItemProps>(({ children, className, ...props }, forwardedRef) => {
+export const SelectItem = forwardRef<
+  HTMLDivElement,
+  RadixSelect.SelectItemProps
+>(({ children, className, ...props }, forwardedRef) => {
   return (
-    <RadixSelect.Item 
+    <RadixSelect.Item
       className={clsx(
-        'SelectItem relative text-green-600 data-[highlighted]:bg-green-500 data-[highlighted]:text-white pl-6 pr-4 py-1 border-none rounded select-none outline-none', 
+        "SelectItem relative select-none rounded border-none py-1 pl-6 pr-4 text-green-600 outline-none data-[highlighted]:bg-green-500 data-[highlighted]:text-white",
         className
-      )} 
-      {...props} 
+      )}
+      {...props}
       ref={forwardedRef}
     >
       <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
-      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 w-[25px] h-full flex items-center justify-center">
+      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 flex h-full w-[25px] items-center justify-center">
         <CheckIcon />
       </RadixSelect.ItemIndicator>
     </RadixSelect.Item>
   );
 });
 
-SelectItem.displayName = 'SelectItem';
+SelectItem.displayName = "SelectItem";

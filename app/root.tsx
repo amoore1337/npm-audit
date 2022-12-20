@@ -12,7 +12,10 @@ import tailwindStylesheetUrl from "./styles/tailwind.css";
 import sharedStylesheetUrl from "./styles/shared.css";
 
 export const links: LinksFunction = () => {
-  return [{ rel: "stylesheet", href: tailwindStylesheetUrl }, { rel: "stylesheet", href: sharedStylesheetUrl } ];
+  return [
+    { rel: "stylesheet", href: tailwindStylesheetUrl },
+    { rel: "stylesheet", href: sharedStylesheetUrl },
+  ];
 };
 
 export const meta: MetaFunction = () => ({
