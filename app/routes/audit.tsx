@@ -180,7 +180,7 @@ function ResultTable({ result }: { result: AuditResult }) {
     setRecords(filterResults(result));
   }, [result, filterResults])
 
-  const allRecords = useMemo(() => {
+  const activeRecords = useMemo(() => {
     const all: Record<string, AuditEntry> = {};
     for (const r of records) {
       all[r.name] = r;
@@ -189,21 +189,20 @@ function ResultTable({ result }: { result: AuditResult }) {
   }, [records]);
 
   const installCmd = useMemo(() => {
-    const selectedEntries = Object.keys(selectedRecords).map(r => allRecords[r]);
+    const selectedEntries = Object.keys(selectedRecords).map(r => activeRecords[r]).filter(r => !!r);
     if (selectedEntries.length) {
       return npmInstallCmd(selectedEntries);
     } else {
       return '';
     }
-  }, [selectedRecords, allRecords]);
+  }, [selectedRecords, activeRecords]);
 
-  const handleSelect = (entry: AuditEntry) => {
+  const handleToggleSelect = (entry: AuditEntry) => {
     setSelectAll(false);
     if (selectedRecords[entry.name]) {
       setSelectedRecords((s) => {
-        const remaining = {...s};
-        delete remaining[entry.name]
-        return remaining;
+        delete s[entry.name]
+        return { ...s };
       });
     } else {
       setSelectedRecords((s) => {
@@ -219,14 +218,22 @@ function ResultTable({ result }: { result: AuditResult }) {
         return { ...h };
       });
     } else {
+      // Remove selected records when hiding
+      if (selectedRecords[entry.name]) {
+        setSelectedRecords((s) => {
+          delete s[entry.name]
+          return { ...s };
+        });
+      }
       setHiddenRecords(h => {
         h[entry.name] = true;
         return { ...h };
       });
     }
+    setSelectAll(false)
   }
 
-  const handleSelectAll = () => {
+  const handleToggleSelectAll = () => {
     if (selectAll) {
       setSelectedRecords({});
       setSelectAll(false);
@@ -247,7 +254,7 @@ function ResultTable({ result }: { result: AuditResult }) {
   };
 
   const handleUpdateTargetVersion = (entry: AuditEntry, targetVersion: string) => {
-    const record = allRecords[entry.name];
+    const record = activeRecords[entry.name];
     if (!record) { return; }
     record.targetVersion = targetVersion;
     setRecords(result => {
@@ -289,7 +296,7 @@ function ResultTable({ result }: { result: AuditResult }) {
       <table className="w-full">
         <thead className="sticky bg-green-500 top-0 text-white">
           <tr className="">
-            <th className="px-4 py-2 text-left w-[50px]"><input type="checkbox" checked={selectAll} onChange={handleSelectAll} /></th>
+            <th className="px-4 py-2 text-left w-[50px]"><input type="checkbox" checked={selectAll} onChange={handleToggleSelectAll} /></th>
             <th className="px-4 py-2 text-left">Package Name</th>
             <th className="px-4 py-2 text-left">Current Version</th>
             <th className="px-4 py-2 text-left">Latest Version</th>
@@ -303,7 +310,7 @@ function ResultTable({ result }: { result: AuditResult }) {
             <Row 
               key={`${p.name}_${i}`} 
               selectedRecords={selectedRecords} 
-              onSelect={handleSelect}
+              onSelect={handleToggleSelect}
               hiddenRecords={hiddenRecords}
               onHide={handleToggleHidden} 
               onTargetVersionChange={handleUpdateTargetVersion}
@@ -337,7 +344,7 @@ function Row({ entry, selectedRecords, onSelect, hiddenRecords, onHide, onTarget
       { 'bg-sky-100': selected, 'odd:bg-green-100': !selected }
     )}>
       <td className="px-4 py-2 border-r border-solid border-green-500">
-        <input type="checkbox" checked={selected} onChange={() => onSelect(entry)} />
+        <input type="checkbox" disabled={hidden} checked={selected} onChange={() => onSelect(entry)} />
       </td>
       <td className="px-4 py-2 border-r border-solid border-green-500">{entry.name} {isDev && <DevChip />}</td>
       <td 
