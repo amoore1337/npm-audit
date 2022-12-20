@@ -15,19 +15,20 @@ import { Toggle } from "~/components/Toggle";
 
 interface AuditResult {
   projectName: string
-  dep: AuditEntry[]
-  dev: AuditEntry[]
+  records: AuditEntry[]
 }
 
 export async function action({ request }: ActionArgs) {
   const body = await request.formData();
   const packageJson = JSON.parse(Object.fromEntries(body).packagejson as string) ?? {};
   
-  const result: AuditResult = { dep: [], dev: [], projectName: packageJson.name ?? 'Your report' };
+  const result: AuditResult = { records: [], projectName: packageJson.name ?? 'Your report' };
 
   const { dependencies, devDependencies } = packageJson;
-  result.dep = await fetchPackageMetadata(dependencies ?? {}, false);
-  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true);
+  result.records = [ 
+    ...await fetchPackageMetadata(dependencies ?? {}, false),
+    ...await fetchPackageMetadata(devDependencies ?? {}, true),
+  ];
 
   return result;
 }
@@ -143,36 +144,31 @@ function ResultTable({ result }: { result: AuditResult }) {
   // Meh, not the best scaling. But the ceiling of records is pretty low.
   const filterResults = useCallback((auditResult: AuditResult) => {
     const filterVals = { ...auditResult }
-   
-    if (typeFilter === 'dep') {
-      filterVals.dev = [];
-    } else if (typeFilter === 'dev') {
-      filterVals.dep = [];
-    }
 
     if (!showHidden && Object.keys(hiddenRecords).length > 0) {
-      filterVals.dep = filterVals.dep.filter(p => !hiddenRecords[p.name]);
-      filterVals.dev = filterVals.dev.filter(p => !hiddenRecords[p.name]);
+      filterVals.records = filterVals.records.filter(r => !hiddenRecords[r.name]);
+    }
+
+    if (typeFilter === 'dep') {
+      filterVals.records = filterVals.records.filter(r => !r.isDev);
+    } else if (typeFilter === 'dev') {
+      filterVals.records = filterVals.records.filter(r => r.isDev);
     }
 
     if (outdatedFilter === 'major') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated === 'major');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated === 'major');
+      filterVals.records = filterVals.records.filter(r => r.outdated === 'major');
     } else if (outdatedFilter === 'minor') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated === 'minor');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated === 'minor');
+      filterVals.records = filterVals.records.filter(r => r.outdated === 'minor');
     } else if (outdatedFilter === 'patch') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated === 'patch');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated === 'patch');
+      filterVals.records = filterVals.records.filter(r => r.outdated === 'patch');
     } else if (outdatedFilter === 'outdated') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated !== 'ok');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated !== 'ok');
+      filterVals.records = filterVals.records.filter(r => r.outdated !== 'ok');
     }
 
     return filterVals;
   }, [typeFilter, outdatedFilter, showHidden, hiddenRecords]);
 
-  const [{ dep, dev }, setRecords] = useState<AuditResult>(filterResults(result));
+  const [{ records }, setRecords] = useState<AuditResult>(filterResults(result));
 
   useEffect(() => {
     if (showHidden && !Object.keys(hiddenRecords).length) {
@@ -185,12 +181,12 @@ function ResultTable({ result }: { result: AuditResult }) {
   }, [result, filterResults])
 
   const allRecords = useMemo(() => {
-    const records: Record<string, AuditEntry> = {};
-    for (const r of [...dep, ...dev]) {
-      records[r.name] = r;
+    const all: Record<string, AuditEntry> = {};
+    for (const r of records) {
+      all[r.name] = r;
     }
-    return records;
-  }, [dev, dep]);
+    return all;
+  }, [records]);
 
   const installCmd = useMemo(() => {
     const selectedEntries = Object.values(selectedRecords);
@@ -250,21 +246,10 @@ function ResultTable({ result }: { result: AuditResult }) {
 
   // Bleh...
   const handleUpdateTargetVersion = (entry: AuditEntry, targetVersion: string) => {
-    const list = entry.isDev ? dev : dep;
-    const recordIndex = list.findIndex(p => p.name === entry.name);
-    if (recordIndex < 0) { return; }
-    const record = list[recordIndex];
+    const record = allRecords[entry.name];
+    if (!record) { return; }
     record.targetVersion = targetVersion;
-    setRecords(records => ({ ...records, [entry.isDev ? 'dev' : 'dep']: list }));
-
-    // Update duplicate store... Dumb
-    if (selectedRecords[entry.name]) {
-      setSelectedRecords(s => {
-        const records = entry.isDev ? dev : dep;
-        const recordIndex = records.findIndex(r => r.name === entry.name);
-        return { ...s, [entry.name]: records[recordIndex] }
-      });
-    }
+    setRecords(r => ({ ...r, [record.name]: record }));
   };
 
   return <>
@@ -283,7 +268,7 @@ function ResultTable({ result }: { result: AuditResult }) {
           <SelectItem value="outdated">Only Outdated</SelectItem>
         </Select>
         <div className="font-bold ml-4">
-          Showing <span className="text-sky-600">{dep.length + dev.length}</span> / {result.dep.length + result.dev.length} packages
+          Showing <span className="text-sky-600">{records.length}</span> / {result.records.length} packages
         </div>
         {!!Object.keys(hiddenRecords).length && (
           <Toggle className="ml-4 flex items-center" pressed={showHidden} onPressedChange={(pressed) => setShowHidden(pressed)}>
@@ -307,7 +292,7 @@ function ResultTable({ result }: { result: AuditResult }) {
           </tr>
         </thead>
         <tbody>
-          {dep.map((p, i) => (
+          {records.map((p, i) => (
             <Row 
               key={`${p.name}_${i}`} 
               selectedRecords={selectedRecords} 
@@ -315,21 +300,10 @@ function ResultTable({ result }: { result: AuditResult }) {
               hiddenRecords={hiddenRecords}
               onHide={handleToggleHidden} 
               onTargetVersionChange={handleUpdateTargetVersion}
-              entry={p} 
+              entry={p}
+              isDev={p.isDev}
             />
           ))}
-          {dev.map((p, i) => (
-            <Row 
-              key={`${p.name}_${i}`} 
-              selectedRecords={selectedRecords} 
-              onSelect={handleSelect}
-              hiddenRecords={hiddenRecords}
-              onHide={handleToggleHidden}
-              onTargetVersionChange={handleUpdateTargetVersion}
-              entry={p} 
-              isDev 
-            />)
-          )}
         </tbody>
       </table>
     </div>
