@@ -49,8 +49,8 @@ export const SelectItem = forwardRef<HTMLDivElement, RadixSelect.SelectItemProps
       ref={forwardedRef}
     >
       <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
-      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 w-[25px] flex items-center justify-center">
-        <CheckIcon className='mt-[10px]' />
+      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 w-[25px] h-full flex items-center justify-center">
+        <CheckIcon />
       </RadixSelect.ItemIndicator>
     </RadixSelect.Item>
   );

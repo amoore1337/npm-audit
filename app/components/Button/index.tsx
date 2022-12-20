@@ -12,7 +12,7 @@ const SHARED_CLASSES = 'rounded px-3 py-1 border border-solid'
 
 const CLASS_MAP: Record<VariantType, string> = {
   primary: 'border-green-500 hover:border-green-600 bg-green-500 text-white hover:bg-green-600',
-  secondary: 'border-sky-500 text-sky-500 bg-sky-100 hover:bg-sky-200',
+  secondary: 'border-sky-600 text-sky-600 bg-sky-100 hover:bg-sky-200',
   outlined: 'border-gray-600 bg-white text-gray-600 hover:bg-gray-100',
 };
 

@@ -2,37 +2,38 @@ import { Form, useActionData, useTransition } from "@remix-run/react";
 import type { ActionArgs } from "@remix-run/server-runtime";
 import axios from "axios";
 import clsx from "clsx";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "~/components/Button";
 import { TextArea } from "~/components/TextArea";
 import { findPackageByName, updateOrCreatePackage } from "~/models/package.server";
 import type { AuditEntry} from "~/utils";
-import { cleanRepoUrl} from "~/utils";
 import { compareSemver, npmInstallCmd } from "~/utils";
-import { CopyIcon } from '@radix-ui/react-icons';
+import { CopyIcon, EyeClosedIcon, EyeOpenIcon } from '@radix-ui/react-icons';
 import {CopyToClipboard} from 'react-copy-to-clipboard';
 import { Select, SelectItem } from "~/components/Select";
+import { Toggle } from "~/components/Toggle";
 
 interface AuditResult {
   projectName: string
-  dep: AuditEntry[]
-  dev: AuditEntry[]
+  records: AuditEntry[]
 }
 
 export async function action({ request }: ActionArgs) {
   const body = await request.formData();
   const packageJson = JSON.parse(Object.fromEntries(body).packagejson as string) ?? {};
   
-  const result: AuditResult = { dep: [], dev: [], projectName: packageJson.name ?? 'Your report' };
+  const result: AuditResult = { records: [], projectName: packageJson.name ?? 'Your report' };
 
   const { dependencies, devDependencies } = packageJson;
-  result.dep = await fetchPackageMetadata(dependencies ?? {}, false);
-  result.dev = await fetchPackageMetadata(devDependencies ?? {}, true);
+  result.records = [ 
+    ...await fetchPackageMetadata(dependencies ?? {}, false),
+    ...await fetchPackageMetadata(devDependencies ?? {}, true),
+  ];
 
   return result;
 }
 
-async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean = false, batchSize: number = 5) {
+async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean = false, batchSize: number = 10) {
   const packages = Object.keys(deps);
   const result: AuditEntry[] = [];
   let batch = packages.slice(0, batchSize);
@@ -44,7 +45,7 @@ async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean
     batch.forEach((k) => {
       const entry: AuditEntry = { name: k, version: deps[k], isDev, outdated: 'ok' };
       promises.push((async () => {
-        const populated = await attachNpmData(entry)
+        const populated = await getNpmData(entry)
         result.push(populated);
       })());
     });
@@ -58,7 +59,7 @@ async function fetchPackageMetadata(deps: Record<string, string>, isDev: boolean
   return result;
 }
 
-async function attachNpmData(dep: AuditEntry): Promise<AuditEntry> {
+async function getNpmData(dep: AuditEntry): Promise<AuditEntry> {
   const entry = { ...dep };
   const dbResult = await findPackageByName(entry.name);
   const oneDayAgo = new Date();
@@ -66,8 +67,9 @@ async function attachNpmData(dep: AuditEntry): Promise<AuditEntry> {
 
   if (dbResult && dbResult.updatedAt > oneDayAgo) {
     entry.latestVersion = dbResult.latestVersion;
-    entry.homepage = dbResult.homepage ?? undefined;
-    entry.repo = dbResult.repo ?? undefined;
+    entry.targetVersion = dbResult.latestVersion;
+    entry.versions = dbResult.versions.split(',');
+    entry.npmPage = dbResult.npmPage ?? undefined;
     entry.outdated = compareSemver(entry.version, entry.latestVersion);
   } else {
     try {
@@ -75,16 +77,19 @@ async function attachNpmData(dep: AuditEntry): Promise<AuditEntry> {
         headers: { Accept: 'application/vnd.npm.install-v1+json' }, // Abbreviated metadata. Some packages data is > 70MB!!!!!
       })
       const latestVersion = data['dist-tags'].latest;
+      // Versions can be an extremely long list. Only grab a chunck of the most recent:
+      const versions = Object.keys(data.versions).reverse().slice(0, 30);
+      const npmPage = `https://www.npmjs.com/package/${entry.name}`;
       await updateOrCreatePackage({ 
         name: entry.name,
         latestVersion, 
-        versions: Object.keys(data.versions).join(','),
-        homepage: data.homepage,
-        repo: data.repository?.url,
+        versions: versions.join(','),
+        npmPage,
       });
       entry.latestVersion = latestVersion;
-      entry.homepage = data.homepage;
-      entry.repo = data.repository?.url;
+      entry.targetVersion = latestVersion;
+      entry.versions = versions;
+      entry.npmPage = npmPage;
     } catch (error) {
       console.error(error)
     }
@@ -104,7 +109,7 @@ export default function Audit() {
 
   return (
     <main className="relative h-screen w-screen p-6 flex flex-col max-h-screen max-w-screen overflow-hidden">
-      <h1 className="text-lg font-semibold text-gray-800 pb-4">Audit NPM Dependencies {result?.projectName && `- ${result.projectName}`}</h1>
+      <h1 className="text-lg font-semibold text-gray-800 pb-4">Audit npm Dependencies {result?.projectName && `- ${result.projectName}`}</h1>
       { result ? <ResultTable result={result} /> : <PackageEntryForm loading={loading} /> }
     </main>
   );
@@ -129,75 +134,113 @@ type TypeFilter = 'all' | 'dep' | 'dev';
 type OutdatedFilter = 'major' | 'minor' | 'patch' | 'outdated' | 'all';
 
 function ResultTable({ result }: { result: AuditResult }) {
-  const [selectedRecords, setSelectedRecords] = useState<Record<string, AuditEntry>>({});
+  const [selectedRecords, setSelectedRecords] = useState<Record<string, true>>({});
   const [selectAll, setSelectAll] = useState(false);
+  const [hiddenRecords, setHiddenRecords] = useState<Record<string, true>>({});
+  const [showHidden, setShowHidden] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [outdatedFilter, setOutdatedFilter] = useState<OutdatedFilter>('all');
 
-  const { dep, dev } = useMemo(() => {
-    const filterVals = { ...result }
-   
+  // Meh, not the best scaling. But the ceiling of records is pretty low.
+  const filterResults = useCallback((auditResult: AuditResult) => {
+    const filterVals = { ...auditResult }
+
+    if (!showHidden && Object.keys(hiddenRecords).length > 0) {
+      filterVals.records = filterVals.records.filter(r => !hiddenRecords[r.name]);
+    }
+
     if (typeFilter === 'dep') {
-      filterVals.dev = [];
+      filterVals.records = filterVals.records.filter(r => !r.isDev);
     } else if (typeFilter === 'dev') {
-      filterVals.dep = [];
+      filterVals.records = filterVals.records.filter(r => r.isDev);
     }
 
     if (outdatedFilter === 'major') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated === 'major');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated === 'major');
+      filterVals.records = filterVals.records.filter(r => r.outdated === 'major');
     } else if (outdatedFilter === 'minor') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated === 'minor');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated === 'minor');
+      filterVals.records = filterVals.records.filter(r => r.outdated === 'minor');
     } else if (outdatedFilter === 'patch') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated === 'patch');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated === 'patch');
+      filterVals.records = filterVals.records.filter(r => r.outdated === 'patch');
     } else if (outdatedFilter === 'outdated') {
-      filterVals.dep = filterVals.dep.filter(p => p.outdated !== 'ok');
-      filterVals.dev = filterVals.dev.filter(p => p.outdated !== 'ok');
+      filterVals.records = filterVals.records.filter(r => r.outdated !== 'ok');
     }
 
     return filterVals;
-  }, [result, typeFilter, outdatedFilter]);
+  }, [typeFilter, outdatedFilter, showHidden, hiddenRecords]);
 
-  const allRecords = useMemo(() => {
-    const records: Record<string, AuditEntry> = {};
-    for (const r of [...dep, ...dev]) {
-      records[r.name] = r;
-    }
-    return records;
-  }, [dev, dep]);
+  const [{ records }, setRecords] = useState<AuditResult>(filterResults(result));
 
-  const handleSelect = (entry: AuditEntry) => {
-    setSelectAll(false);
-    if (selectedRecords[entry.name]) {
-      setSelectedRecords((s) => {
-        const remaining = {...s};
-        delete remaining[entry.name]
-        return remaining;
-      })
-    } else {
-      setSelectedRecords((s) => {
-        return { ...s, [entry.name]: entry };
-      })
+  useEffect(() => {
+    if (showHidden && !Object.keys(hiddenRecords).length) {
+      setShowHidden(false);
     }
-  }
+  }, [hiddenRecords, showHidden]);
+
+  useEffect(() => {
+    setRecords(filterResults(result));
+  }, [result, filterResults])
+
+  const activeRecords = useMemo(() => {
+    const all: Record<string, AuditEntry> = {};
+    for (const r of records) {
+      all[r.name] = r;
+    }
+    return all;
+  }, [records]);
 
   const installCmd = useMemo(() => {
-    const selectedEntries = Object.values(selectedRecords);
+    const selectedEntries = Object.keys(selectedRecords).map(r => activeRecords[r]).filter(r => !!r);
     if (selectedEntries.length) {
       return npmInstallCmd(selectedEntries);
     } else {
       return '';
     }
-  }, [selectedRecords]);
+  }, [selectedRecords, activeRecords]);
 
-  const handleSelectAll = () => {
+  const handleToggleSelect = (entry: AuditEntry) => {
+    setSelectAll(false);
+    if (selectedRecords[entry.name]) {
+      setSelectedRecords((s) => {
+        delete s[entry.name]
+        return { ...s };
+      });
+    } else {
+      setSelectedRecords((s) => {
+        return { ...s, [entry.name]: true };
+      });
+    }
+  }
+
+  const handleToggleHidden = (entry: AuditEntry) => {
+    if (hiddenRecords[entry.name]) {
+      setHiddenRecords(h => {
+        delete h[entry.name];
+        return { ...h };
+      });
+    } else {
+      // Remove selected records when hiding
+      if (selectedRecords[entry.name]) {
+        setSelectedRecords((s) => {
+          delete s[entry.name]
+          return { ...s };
+        });
+      }
+      setHiddenRecords(h => {
+        h[entry.name] = true;
+        return { ...h };
+      });
+    }
+    setSelectAll(false)
+  }
+
+  const handleToggleSelectAll = () => {
     if (selectAll) {
       setSelectedRecords({});
       setSelectAll(false);
     } else {
-      setSelectedRecords(allRecords);
+      const all: Record<string, true> = {}
+      records.forEach(r => all[r.name] = true);
+      setSelectedRecords(all);
       setSelectAll(true);
     }
   }
@@ -208,6 +251,19 @@ function ResultTable({ result }: { result: AuditResult }) {
   
   const handleOutdatedFilter = (type: string) => {
     setOutdatedFilter(type as OutdatedFilter);
+  };
+
+  const handleUpdateTargetVersion = (entry: AuditEntry, targetVersion: string) => {
+    const record = activeRecords[entry.name];
+    if (!record) { return; }
+    record.targetVersion = targetVersion;
+    setRecords(result => {
+      const existingIndex = result.records.findIndex(r => r.name === record.name);
+      if (existingIndex > -1) {
+        result.records[existingIndex] = record;
+      }
+      return { ...result, records: [...result.records] };
+    });
   };
 
   return <>
@@ -226,8 +282,13 @@ function ResultTable({ result }: { result: AuditResult }) {
           <SelectItem value="outdated">Only Outdated</SelectItem>
         </Select>
         <div className="font-bold ml-4">
-          Showing <span className="text-sky-600">{dep.length + dev.length}</span> / {result.dep.length + result.dev.length} packages
+          Showing <span className="text-sky-600">{records.length}</span> / {result.records.length} packages
         </div>
+        {!!Object.keys(hiddenRecords).length && (
+          <Toggle className="ml-4 flex items-center" pressed={showHidden} onPressedChange={(pressed) => setShowHidden(pressed)}>
+            {showHidden ? <EyeClosedIcon className="mr-2 mt-[2px]" /> : <EyeOpenIcon className="mr-2 mt-[2px]" />} Hidden
+          </Toggle>
+        )}
       </div>
       {!!installCmd && <UpgradeCommand command={installCmd} />}
     </div>
@@ -235,17 +296,28 @@ function ResultTable({ result }: { result: AuditResult }) {
       <table className="w-full">
         <thead className="sticky bg-green-500 top-0 text-white">
           <tr className="">
-            <th className="px-4 py-2 text-left"><input type="checkbox" checked={selectAll} onChange={handleSelectAll} /></th>
+            <th className="px-4 py-2 text-left w-[50px]"><input type="checkbox" checked={selectAll} onChange={handleToggleSelectAll} /></th>
             <th className="px-4 py-2 text-left">Package Name</th>
             <th className="px-4 py-2 text-left">Current Version</th>
             <th className="px-4 py-2 text-left">Latest Version</th>
-            <th className="px-4 py-2 text-left">Homepage</th>
-            <th className="px-4 py-2 text-left">Repository</th>
+            <th className="px-4 py-2 text-left">Target Version</th>
+            <th className="px-4 py-2 text-left">npm Page</th>
+            <th className="px-4 py-2 text-left w-[140px]">Show / Hide</th>
           </tr>
         </thead>
         <tbody>
-          {dep.map((p, i) => <Row key={`${p.name}_${i}`} selectedRecords={selectedRecords} onSelect={handleSelect} entry={p} />)}
-          {dev.map((p, i) => <Row key={`${p.name}_${i}`} selectedRecords={selectedRecords} onSelect={handleSelect} entry={p} isDev />)}
+          {records.map((p, i) => (
+            <Row 
+              key={`${p.name}_${i}`} 
+              selectedRecords={selectedRecords} 
+              onSelect={handleToggleSelect}
+              hiddenRecords={hiddenRecords}
+              onHide={handleToggleHidden} 
+              onTargetVersionChange={handleUpdateTargetVersion}
+              entry={p}
+              isDev={p.isDev}
+            />
+          ))}
         </tbody>
       </table>
     </div>
@@ -253,14 +325,18 @@ function ResultTable({ result }: { result: AuditResult }) {
 }
 
 interface RowProps {
-  entry: AuditEntry, 
-  selectedRecords: Record<string, AuditEntry>, 
-  onSelect: (entry: AuditEntry) => void, 
+  entry: AuditEntry
+  selectedRecords: Record<string, true>
+  onSelect: (entry: AuditEntry) => void
+  hiddenRecords: Record<string, true>
+  onHide: (entry: AuditEntry) => void
+  onTargetVersionChange: (entry: AuditEntry, targetVersion: string) => void
   isDev?: boolean
 }
 
-function Row({ entry, selectedRecords, onSelect, isDev }: RowProps) {
-  const selected = selectedRecords[entry.name] ? true : false;
+function Row({ entry, selectedRecords, onSelect, hiddenRecords, onHide, onTargetVersionChange, isDev }: RowProps) {
+  const selected: boolean = selectedRecords[entry.name] ?? false;
+  const hidden: boolean = hiddenRecords[entry.name] ?? false;
 
   return (
     <tr className={clsx(
@@ -268,7 +344,7 @@ function Row({ entry, selectedRecords, onSelect, isDev }: RowProps) {
       { 'bg-sky-100': selected, 'odd:bg-green-100': !selected }
     )}>
       <td className="px-4 py-2 border-r border-solid border-green-500">
-        <input type="checkbox" checked={selected} onChange={() => onSelect(entry)} />
+        <input type="checkbox" disabled={hidden} checked={selected} onChange={() => onSelect(entry)} />
       </td>
       <td className="px-4 py-2 border-r border-solid border-green-500">{entry.name} {isDev && <DevChip />}</td>
       <td 
@@ -283,10 +359,23 @@ function Row({ entry, selectedRecords, onSelect, isDev }: RowProps) {
       </td>
       <td className="px-4 py-2 border-r border-solid border-green-500">{entry.latestVersion ?? 'Not Found'}</td>
       <td className="px-4 py-2 border-r border-solid border-green-500">
-        {entry.homepage ? <a target="_blank" rel="noreferrer" href={entry.homepage} className="text-sky-600 underline">homepage</a> : 'Not Found'}
+        {entry.versions?.length && entry.latestVersion ? (
+          <VersionSelect
+            versions={entry.versions} 
+            targetVersion={entry.targetVersion ?? entry.latestVersion} 
+            onVersionChange={(version) => onTargetVersionChange(entry, version)} 
+          />
+        ) : 'Not Found'}
+      </td>
+      <td className="px-4 py-2 border-r border-solid border-green-500">
+        {entry.npmPage ? <a target="_blank" rel="noreferrer" href={entry.npmPage} className="text-sky-600 underline">npm</a> : 'Not Found'}
       </td>
       <td className="px-4 py-2">
-        {entry.repo ? <a target="_blank" rel="noreferrer" href={cleanRepoUrl(entry.repo)} className="text-sky-600 underline">repo</a> : 'Not Found'}
+        <div className="w-[35px]">
+          <Button variant="secondary" className="text-sm" onClick={() => onHide(entry)}>
+            {hidden ? 'show' : 'hide'}
+          </Button>
+        </div>
       </td>
     </tr>
   )
@@ -300,6 +389,22 @@ function DevChip() {
     >
       DEV
     </span>
+  )
+}
+
+interface SelectVersionProps { 
+  versions: string[]
+  targetVersion: string
+  onVersionChange: (version: string) => void
+}
+
+function VersionSelect({ versions, targetVersion, onVersionChange }: SelectVersionProps) {
+  return (
+    <Select value={targetVersion} onValueChange={onVersionChange} placeholder="Target Version">
+      {versions.map(version => (
+        <SelectItem key={version} value={version}>{version}</SelectItem>
+      ))}
+    </Select>
   )
 }
 
