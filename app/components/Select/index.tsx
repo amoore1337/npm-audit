@@ -10,11 +10,12 @@ interface Props {
   onValueChange: (value: string) => void
   children: ReactNode
   className?: string
+  open?: boolean;
 }
 
-export function Select({ placeholder, value, onValueChange, children, className }: Props) {
+export function Select({ placeholder, value, onValueChange, children, className, open }: Props) {
   return (
-    <RadixSelect.Root value={value} onValueChange={onValueChange}>
+    <RadixSelect.Root value={value} open={open} onValueChange={onValueChange}>
       <RadixSelect.Trigger 
         className={clsx(
           'SelectTrigger hover:bg-green-100 text-green-600 data-[placeholder]:text-green-600 outline-none flex items-center rounded border bg-green-50 border-solid border-green-500 px-2 py-1',
@@ -49,8 +50,8 @@ export const SelectItem = forwardRef<HTMLDivElement, RadixSelect.SelectItemProps
       ref={forwardedRef}
     >
       <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
-      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 w-[25px] flex items-center justify-center">
-        <CheckIcon className='mt-[10px]' />
+      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 w-[25px] h-full flex items-center justify-center">
+        <CheckIcon />
       </RadixSelect.ItemIndicator>
     </RadixSelect.Item>
   );

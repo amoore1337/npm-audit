@@ -101,10 +101,12 @@ export function npmInstallCmd(deps: AuditEntry[]) {
   let depString: string = '';
   let devString: string = '';
   deps.forEach((d) => {
+    const isLatest = d.latestVersion === d.targetVersion;
+    const version = isLatest ? 'latest' : d.targetVersion ?? 'latest';
     if (d.isDev) {
-      devString += `${d.name}@${d.targetVersion ?? 'latest'} `;
+      devString += `${d.name}@${version} `;
     } else {
-      depString += `${d.name}@${d.targetVersion ?? 'latest'} `;
+      depString += `${d.name}@${version} `;
     }
   });
 

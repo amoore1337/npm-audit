@@ -134,7 +134,7 @@ type TypeFilter = 'all' | 'dep' | 'dev';
 type OutdatedFilter = 'major' | 'minor' | 'patch' | 'outdated' | 'all';
 
 function ResultTable({ result }: { result: AuditResult }) {
-  const [selectedRecords, setSelectedRecords] = useState<Record<string, AuditEntry>>({});
+  const [selectedRecords, setSelectedRecords] = useState<Record<string, true>>({});
   const [selectAll, setSelectAll] = useState(false);
   const [hiddenRecords, setHiddenRecords] = useState<Record<string, true>>({});
   const [showHidden, setShowHidden] = useState(false);
@@ -189,13 +189,13 @@ function ResultTable({ result }: { result: AuditResult }) {
   }, [records]);
 
   const installCmd = useMemo(() => {
-    const selectedEntries = Object.values(selectedRecords);
+    const selectedEntries = Object.keys(selectedRecords).map(r => allRecords[r]);
     if (selectedEntries.length) {
       return npmInstallCmd(selectedEntries);
     } else {
       return '';
     }
-  }, [selectedRecords]);
+  }, [selectedRecords, allRecords]);
 
   const handleSelect = (entry: AuditEntry) => {
     setSelectAll(false);
@@ -207,7 +207,7 @@ function ResultTable({ result }: { result: AuditResult }) {
       });
     } else {
       setSelectedRecords((s) => {
-        return { ...s, [entry.name]: entry };
+        return { ...s, [entry.name]: true };
       });
     }
   }
@@ -231,7 +231,9 @@ function ResultTable({ result }: { result: AuditResult }) {
       setSelectedRecords({});
       setSelectAll(false);
     } else {
-      setSelectedRecords(allRecords);
+      const all: Record<string, true> = {}
+      records.forEach(r => all[r.name] = true);
+      setSelectedRecords(all);
       setSelectAll(true);
     }
   }
@@ -244,12 +246,17 @@ function ResultTable({ result }: { result: AuditResult }) {
     setOutdatedFilter(type as OutdatedFilter);
   };
 
-  // Bleh...
   const handleUpdateTargetVersion = (entry: AuditEntry, targetVersion: string) => {
     const record = allRecords[entry.name];
     if (!record) { return; }
     record.targetVersion = targetVersion;
-    setRecords(r => ({ ...r, [record.name]: record }));
+    setRecords(result => {
+      const existingIndex = result.records.findIndex(r => r.name === record.name);
+      if (existingIndex > -1) {
+        result.records[existingIndex] = record;
+      }
+      return { ...result, records: [...result.records] };
+    });
   };
 
   return <>
@@ -312,7 +319,7 @@ function ResultTable({ result }: { result: AuditResult }) {
 
 interface RowProps {
   entry: AuditEntry
-  selectedRecords: Record<string, AuditEntry>
+  selectedRecords: Record<string, true>
   onSelect: (entry: AuditEntry) => void
   hiddenRecords: Record<string, true>
   onHide: (entry: AuditEntry) => void
@@ -321,7 +328,8 @@ interface RowProps {
 }
 
 function Row({ entry, selectedRecords, onSelect, hiddenRecords, onHide, onTargetVersionChange, isDev }: RowProps) {
-  const selected = selectedRecords[entry.name] ? true : false;
+  const selected: boolean = selectedRecords[entry.name] ?? false;
+  const hidden: boolean = hiddenRecords[entry.name] ?? false;
 
   return (
     <tr className={clsx(
@@ -358,7 +366,7 @@ function Row({ entry, selectedRecords, onSelect, hiddenRecords, onHide, onTarget
       <td className="px-4 py-2">
         <div className="w-[35px]">
           <Button variant="secondary" className="text-sm" onClick={() => onHide(entry)}>
-            {hiddenRecords[entry.name] ? 'show' : 'hide'}
+            {hidden ? 'show' : 'hide'}
           </Button>
         </div>
       </td>
