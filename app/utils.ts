@@ -70,11 +70,12 @@ export function compareSemver(startSemver: string, endSemver: string) {
 export interface AuditEntry {
   name: string
   version: string
-  isDev: boolean;
+  isDev: boolean
   outdated: 'major' | 'minor' | 'patch' | 'ok'
   latestVersion?: string
-  homepage?: string
-  repo?: string
+  targetVersion?: string
+  versions?: string[]
+  npmPage?: string
 }
 
 // TODO: IDK what the parsing rules around this should actually be
@@ -101,9 +102,9 @@ export function npmInstallCmd(deps: AuditEntry[]) {
   let devString: string = '';
   deps.forEach((d) => {
     if (d.isDev) {
-      devString += `${d.name}@latest `;
+      devString += `${d.name}@${d.targetVersion ?? 'latest'} `;
     } else {
-      depString += `${d.name}@latest `;
+      depString += `${d.name}@${d.targetVersion ?? 'latest'} `;
     }
   });
 

@@ -1,4 +1,4 @@
-# NPM Audit
+# Audit npm
 ## *(A Remix Experiment)*
 
 Yep, the npm cli already has commands for `npm outdated` and `npm audit`. So why bother?
@@ -88,6 +88,20 @@ This is a pretty simple note-taking app, but it's a good example of how you can 
 - creating users, and logging in and out [./app/models/user.server.ts](./app/models/user.server.ts)
 - user sessions, and verifying them [./app/session.server.ts](./app/session.server.ts)
 - creating, and deleting notes [./app/models/note.server.ts](./app/models/note.server.ts)
+
+## Create migration:
+
+- Update local db
+
+```sh
+npx prisma db push
+```
+
+- Generate migration file
+
+```sh
+npx prisma migrate dev
+```
 
 ## Deployment
 

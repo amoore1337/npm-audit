@@ -12,8 +12,7 @@ model Package {
   name String @unique
   latestVersion String
   versions String // No List support in SQLite
-  homepage String?
-  repo String?
+  npmPage String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
