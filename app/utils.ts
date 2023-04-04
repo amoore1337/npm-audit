@@ -78,6 +78,11 @@ export interface AuditEntry {
   npmPage?: string;
 }
 
+export interface AuditResult {
+  projectName: string;
+  records: AuditEntry[];
+}
+
 // TODO: IDK what the parsing rules around this should actually be
 export function cleanRepoUrl(repo: string) {
   let url: string = repo;
