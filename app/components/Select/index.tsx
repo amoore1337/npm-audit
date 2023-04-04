@@ -1,6 +1,6 @@
+import { CheckIcon, ChevronDownIcon } from "@radix-ui/react-icons";
 import * as RadixSelect from "@radix-ui/react-select";
 import clsx from "clsx";
-import { CheckIcon, ChevronDownIcon } from "@radix-ui/react-icons";
 import type { ReactNode } from "react";
 import { forwardRef } from "react";
 
@@ -58,7 +58,7 @@ export const SelectItem = forwardRef<
       ref={forwardedRef}
     >
       <RadixSelect.ItemText>{children}</RadixSelect.ItemText>
-      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute top-0 left-0 flex h-full w-[25px] items-center justify-center">
+      <RadixSelect.ItemIndicator className="SelectItemIndicator absolute left-0 top-0 flex h-full w-[25px] items-center justify-center">
         <CheckIcon />
       </RadixSelect.ItemIndicator>
     </RadixSelect.Item>

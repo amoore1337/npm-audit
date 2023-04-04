@@ -1,5 +1,6 @@
 # Audit npm
-## *(A Remix Experiment)*
+
+## _(A Remix Experiment)_
 
 Yep, the npm cli already has commands for `npm outdated` and `npm audit`. So why bother?
 

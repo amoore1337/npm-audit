@@ -1,20 +1,20 @@
+import { CopyIcon, EyeClosedIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import { Form, useActionData, useTransition } from "@remix-run/react";
 import type { ActionArgs } from "@remix-run/server-runtime";
 import axios from "axios";
 import clsx from "clsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { CopyToClipboard } from "react-copy-to-clipboard";
 import { Button } from "~/components/Button";
+import { Select, SelectItem } from "~/components/Select";
 import { TextArea } from "~/components/TextArea";
+import { Toggle } from "~/components/Toggle";
 import {
   findPackageByName,
   updateOrCreatePackage,
 } from "~/models/package.server";
 import type { AuditEntry } from "~/utils";
 import { compareSemver, npmInstallCmd } from "~/utils";
-import { CopyIcon, EyeClosedIcon, EyeOpenIcon } from "@radix-ui/react-icons";
-import { CopyToClipboard } from "react-copy-to-clipboard";
-import { Select, SelectItem } from "~/components/Select";
-import { Toggle } from "~/components/Toggle";
 
 interface AuditResult {
   projectName: string;

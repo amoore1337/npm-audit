@@ -1,5 +1,5 @@
-import * as RadixToggle from "@radix-ui/react-toggle";
 import type { ToggleProps } from "@radix-ui/react-toggle";
+import * as RadixToggle from "@radix-ui/react-toggle";
 import clsx from "clsx";
 import type { ComponentPropsWithRef } from "react";
 
