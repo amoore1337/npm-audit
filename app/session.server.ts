@@ -1,18 +1,55 @@
-import { createCookieSessionStorage } from "@remix-run/node";
+import { createSessionStorage } from "@remix-run/node";
+import * as crypto from "crypto";
 import invariant from "tiny-invariant";
+import { redis } from "./redis.server";
 
 invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
 
-export const sessionStorage = createCookieSessionStorage({
-  cookie: {
-    name: "__session",
-    httpOnly: true,
-    path: "/",
-    sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET],
-    secure: process.env.NODE_ENV === "production",
-  },
-});
+interface SessionData {
+  auditReport: AuditReportRecord[];
+}
+
+interface AuditReportRecord {
+  packageId: string;
+  currentVersion: string;
+}
+
+function expiresToSeconds(expires: Date) {
+  const now = new Date();
+  const expiresDate = new Date(expires);
+  const secondsDelta = expiresDate.getSeconds() - now.getSeconds();
+  return secondsDelta < 0 ? 0 : secondsDelta;
+}
+
+function createRedisSessionStorage() {
+  return createSessionStorage<SessionData>({
+    cookie: {
+      name: "__session",
+      httpOnly: true,
+      path: "/",
+      sameSite: "lax",
+      secrets: [process.env.SESSION_SECRET!],
+      secure: process.env.NODE_ENV === "production",
+    },
+    async createData(data, expires) {
+      const randomBytes = crypto.randomBytes(8);
+      const id = Buffer.from(randomBytes).toString("hex");
+      if (expires) {
+        redis.set(id, JSON.stringify(data), "EX", expiresToSeconds(expires));
+      } else {
+        redis.set(id, JSON.stringify(data));
+      }
+      return id;
+    },
+    async readData(id) {
+      return JSON.parse((await redis.get(id)) ?? "{}");
+    },
+    async updateData(id, data, expires) {},
+    async deleteData(id) {},
+  });
+}
+
+export const sessionStorage = createRedisSessionStorage();
 
 export async function getSession(request: Request) {
   const cookie = request.headers.get("Cookie");
