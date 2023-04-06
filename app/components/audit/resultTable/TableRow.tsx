@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import CopyToClipboard from "react-copy-to-clipboard";
 import { Button, Select, SelectItem } from "~/components/base";
 import { type AuditEntry } from "~/utils";
 

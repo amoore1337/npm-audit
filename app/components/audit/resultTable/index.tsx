@@ -1,19 +1,12 @@
-import {
-  DownloadIcon,
-  EyeClosedIcon,
-  EyeOpenIcon,
-} from "@radix-ui/react-icons";
-import { Form } from "@remix-run/react";
+import { EyeClosedIcon, EyeOpenIcon } from "@radix-ui/react-icons";
 import React from "react";
-import { Button, Select, SelectItem, Toggle } from "~/components/base";
+import { Select, SelectItem, Toggle } from "~/components/base";
 import { npmInstallCmd, type AuditEntry, type AuditResult } from "~/utils";
 import { TableRow } from "./TableRow";
 import { UpgradeCommand } from "./UpgradeCommand";
 
 type TypeFilter = "all" | "dep" | "dev";
 type OutdatedFilter = "major" | "minor" | "patch" | "outdated" | "all";
-
-export const exportCsvFormAction = "export";
 
 export function ResultTable({ result }: { result: AuditResult }) {
   const [selectedRecords, setSelectedRecords] = React.useState<
@@ -206,17 +199,6 @@ export function ResultTable({ result }: { result: AuditResult }) {
             Showing <span className="text-sky-600">{records.length}</span> /{" "}
             {result.records.length} packages
           </div>
-          <Form method="post">
-            <Button
-              name="_action"
-              value={exportCsvFormAction}
-              type="submit"
-              variant="secondary"
-              className="ml-4 flex items-center"
-            >
-              Export to CSV <DownloadIcon className="ml-2" />
-            </Button>
-          </Form>
           {!!Object.keys(hiddenRecords).length && (
             <Toggle
               className="ml-4 flex items-center"

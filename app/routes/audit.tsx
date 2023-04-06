@@ -1,57 +1,32 @@
-import { useActionData, useLoaderData, useNavigation } from "@remix-run/react";
-import {
-  json,
-  type ActionArgs,
-  type LoaderArgs,
-} from "@remix-run/server-runtime";
+import { useActionData, useNavigation } from "@remix-run/react";
+import type { ActionArgs } from "@remix-run/server-runtime";
 import axios from "axios";
-import {
-  exportCsvFormAction,
-  PackageEntryForm,
-  packageEntryFormAction,
-  ResultTable,
-} from "~/components/audit";
+import { PackageEntryForm } from "~/components/audit";
+import { ResultTable } from "~/components/audit/resultTable";
 import {
   findPackageByName,
   updateOrCreatePackage,
 } from "~/models/package.server";
-import { getSession, sessionStorage } from "~/session.server";
 import type { AuditEntry, AuditResult } from "~/utils";
 import { compareSemver } from "~/utils";
 
 export async function action({ request }: ActionArgs) {
   const body = await request.formData();
-  const { _action, ...values } = Object.fromEntries(body);
+  const packageJson =
+    JSON.parse(Object.fromEntries(body).packagejson as string) ?? {};
 
-  if (_action === packageEntryFormAction) {
-    const packageJson = JSON.parse(values.packagejson as string) ?? {};
+  const result: AuditResult = {
+    records: [],
+    projectName: packageJson.name ?? "Your report",
+  };
 
-    const result: AuditResult = {
-      records: [],
-      projectName: packageJson.name ?? "Your report",
-    };
+  const { dependencies, devDependencies } = packageJson;
+  result.records = [
+    ...(await fetchPackageMetadata(dependencies ?? {}, false)),
+    ...(await fetchPackageMetadata(devDependencies ?? {}, true)),
+  ];
 
-    const { dependencies, devDependencies } = packageJson;
-    result.records = [
-      ...(await fetchPackageMetadata(dependencies ?? {}, false)),
-      ...(await fetchPackageMetadata(devDependencies ?? {}, true)),
-    ];
-    const session = await getSession(request);
-    session.set("auditReport", [{ packageId: "id", currentVersion: "1" }]);
-    const cookie = await sessionStorage.commitSession(session);
-    return json(result, { headers: { "Set-Cookie": cookie } });
-  } else if (_action === exportCsvFormAction) {
-    // TODO wire up
-  }
-
-  return null;
-}
-
-export async function loader({ request }: LoaderArgs) {
-  const session = await getSession(request);
-  const result = session.get("auditReport");
-
-  return result ?? null;
+  return result;
 }
 
 async function fetchPackageMetadata(
@@ -138,9 +113,6 @@ async function getNpmData(dep: AuditEntry): Promise<AuditEntry> {
 
 export default function Audit() {
   const result = useActionData<AuditResult>();
-  const data = useLoaderData<typeof loader>();
-
-  console.log("GOT: ", data);
   const navigation = useNavigation();
 
   const loading = navigation.state === "submitting";
