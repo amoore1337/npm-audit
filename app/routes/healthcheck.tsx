@@ -2,6 +2,7 @@
 import type { LoaderArgs } from "@remix-run/node";
 
 import { prisma } from "~/db.server";
+import { redis } from "~/redis.server";
 
 export async function loader({ request }: LoaderArgs) {
   const host =
@@ -13,6 +14,7 @@ export async function loader({ request }: LoaderArgs) {
     // and make a HEAD request to ourselves, then we're good.
     await Promise.all([
       prisma.package.count(),
+      redis.ping(),
       fetch(url.toString(), { method: "HEAD" }).then((r) => {
         if (!r.ok) return Promise.reject(r);
       }),

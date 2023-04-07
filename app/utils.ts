@@ -68,6 +68,7 @@ export function compareSemver(startSemver: string, endSemver: string) {
 }
 
 export interface AuditEntry {
+  id?: string; // db ID
   name: string;
   version: string;
   isDev: boolean;

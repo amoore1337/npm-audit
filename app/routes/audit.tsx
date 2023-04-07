@@ -1,16 +1,16 @@
-import { useActionData, useLoaderData, useNavigation } from "@remix-run/react";
+import { useLoaderData, useNavigation } from "@remix-run/react";
 import {
   json,
   type ActionArgs,
   type LoaderArgs,
 } from "@remix-run/server-runtime";
 import axios from "axios";
+import { PackageEntryForm, packageEntryFormAction } from "~/components/audit";
 import {
   exportCsvFormAction,
-  PackageEntryForm,
-  packageEntryFormAction,
   ResultTable,
-} from "~/components/audit";
+} from "~/components/audit/resultTable";
+import { prisma } from "~/db.server";
 import {
   findPackageByName,
   updateOrCreatePackage,
@@ -36,9 +36,15 @@ export async function action({ request }: ActionArgs) {
       ...(await fetchPackageMetadata(dependencies ?? {}, false)),
       ...(await fetchPackageMetadata(devDependencies ?? {}, true)),
     ];
+
     const session = await getSession(request);
-    session.set("auditReport", [{ packageId: "id", currentVersion: "1" }]);
+    const sessionData = result.records.map((e) => ({
+      packageId: e.id!,
+      version: e.version,
+    }));
+    session.set("auditReport", sessionData);
     const cookie = await sessionStorage.commitSession(session);
+
     return json(result, { headers: { "Set-Cookie": cookie } });
   } else if (_action === exportCsvFormAction) {
     // TODO wire up
@@ -49,9 +55,33 @@ export async function action({ request }: ActionArgs) {
 
 export async function loader({ request }: LoaderArgs) {
   const session = await getSession(request);
-  const result = session.get("auditReport");
+  const audit = session.get("auditReport");
+  if (!audit) {
+    return null;
+  }
 
-  return result ?? null;
+  const packages = await prisma.package.findMany({
+    where: { id: { in: audit.map((rec) => rec.packageId) } },
+  });
+
+  const result: AuditResult = {
+    records: packages.map((pkg) => {
+      const version = audit.find((a) => a.packageId === pkg.id)?.version;
+      return {
+        name: pkg.name,
+        version: version!,
+        isDev: false,
+        outdated: compareSemver(version!, pkg.latestVersion),
+        npmPage: pkg.npmPage ?? undefined,
+        versions: pkg.versions.split(","),
+        targetVersion: pkg.latestVersion,
+        latestVersion: pkg.latestVersion,
+      };
+    }),
+    projectName: "Your report",
+  };
+
+  return result;
 }
 
 async function fetchPackageMetadata(
@@ -98,6 +128,7 @@ async function getNpmData(dep: AuditEntry): Promise<AuditEntry> {
   oneDayAgo.setDate(new Date().getDate() - 1);
 
   if (dbResult && dbResult.updatedAt > oneDayAgo) {
+    entry.id = dbResult.id;
     entry.latestVersion = dbResult.latestVersion;
     entry.targetVersion = dbResult.latestVersion;
     entry.versions = dbResult.versions.split(",");
@@ -115,12 +146,13 @@ async function getNpmData(dep: AuditEntry): Promise<AuditEntry> {
       // Versions can be an extremely long list. Only grab a chunck of the most recent:
       const versions = Object.keys(data.versions).reverse().slice(0, 30);
       const npmPage = `https://www.npmjs.com/package/${entry.name}`;
-      await updateOrCreatePackage({
+      const result = await updateOrCreatePackage({
         name: entry.name,
         latestVersion,
         versions: versions.join(","),
         npmPage,
       });
+      entry.id = result.id;
       entry.latestVersion = latestVersion;
       entry.targetVersion = latestVersion;
       entry.versions = versions;
@@ -137,10 +169,7 @@ async function getNpmData(dep: AuditEntry): Promise<AuditEntry> {
 }
 
 export default function Audit() {
-  const result = useActionData<AuditResult>();
-  const data = useLoaderData<typeof loader>();
-
-  console.log("GOT: ", data);
+  const result = useLoaderData<typeof loader>();
   const navigation = useNavigation();
 
   const loading = navigation.state === "submitting";

@@ -11,7 +11,7 @@ interface SessionData {
 
 interface AuditReportRecord {
   packageId: string;
-  currentVersion: string;
+  version: string;
 }
 
 function expiresToSeconds(expires: Date) {
@@ -35,17 +35,35 @@ function createRedisSessionStorage() {
       const randomBytes = crypto.randomBytes(8);
       const id = Buffer.from(randomBytes).toString("hex");
       if (expires) {
-        redis.set(id, JSON.stringify(data), "EX", expiresToSeconds(expires));
+        await redis.set(
+          id,
+          JSON.stringify(data),
+          "EX",
+          expiresToSeconds(expires)
+        );
       } else {
-        redis.set(id, JSON.stringify(data));
+        await redis.set(id, JSON.stringify(data));
       }
       return id;
     },
     async readData(id) {
       return JSON.parse((await redis.get(id)) ?? "{}");
     },
-    async updateData(id, data, expires) {},
-    async deleteData(id) {},
+    async updateData(id, data, expires) {
+      if (expires) {
+        await redis.set(
+          id,
+          JSON.stringify(data),
+          "EX",
+          expiresToSeconds(expires)
+        );
+      } else {
+        await redis.set(id, JSON.stringify(data));
+      }
+    },
+    async deleteData(id) {
+      await redis.del(id);
+    },
   });
 }
 
