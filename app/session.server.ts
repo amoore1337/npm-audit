@@ -17,7 +17,9 @@ interface AuditReportRecord {
 function expiresToSeconds(expires: Date) {
   const now = new Date();
   const expiresDate = new Date(expires);
-  const secondsDelta = expiresDate.getSeconds() - now.getSeconds();
+  const secondsDelta = Math.floor(
+    expiresDate.getTime() / 1000 - now.getTime() / 1000
+  );
   return secondsDelta < 0 ? 0 : secondsDelta;
 }
 
@@ -30,6 +32,7 @@ function createRedisSessionStorage() {
       sameSite: "lax",
       secrets: [process.env.SESSION_SECRET!],
       secure: process.env.NODE_ENV === "production",
+      maxAge: 172_800, // 2 days
     },
     async createData(data, expires) {
       const randomBytes = crypto.randomBytes(8);

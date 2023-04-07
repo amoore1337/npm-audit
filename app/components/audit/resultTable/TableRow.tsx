@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import React from "react";
 import { Button, Select, SelectItem } from "~/components/base";
 import { type AuditEntry } from "~/utils";
 
@@ -23,6 +24,14 @@ export function TableRow({
 }: RowProps) {
   const selected: boolean = selectedRecords[entry.name] ?? false;
   const hidden: boolean = hiddenRecords[entry.name] ?? false;
+
+  const availableVersions = React.useMemo(() => {
+    const hasLatest = entry.versions?.find((v) => v === entry.latestVersion);
+    if (hasLatest || !entry.latestVersion) {
+      return entry.versions ?? [];
+    }
+    return [entry.latestVersion, ...(entry.versions ?? [])];
+  }, [entry.versions, entry.latestVersion]);
 
   return (
     <tr
@@ -56,9 +65,9 @@ export function TableRow({
         {entry.latestVersion ?? "Not Found"}
       </td>
       <td className="border-r border-solid border-green-500 px-4 py-2">
-        {entry.versions?.length && entry.latestVersion ? (
+        {availableVersions.length && entry.latestVersion ? (
           <VersionSelect
-            versions={entry.versions}
+            versions={availableVersions}
             targetVersion={entry.targetVersion ?? entry.latestVersion}
             onVersionChange={(version) => onTargetVersionChange(entry, version)}
           />
