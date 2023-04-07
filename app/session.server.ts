@@ -10,8 +10,9 @@ interface SessionData {
 }
 
 interface AuditReportRecord {
-  packageId: string;
+  packageId?: string;
   version: string;
+  isDev: boolean;
 }
 
 function expiresToSeconds(expires: Date) {

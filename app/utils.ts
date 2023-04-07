@@ -1,3 +1,4 @@
+import { type Package } from "@prisma/client";
 import { useMatches } from "@remix-run/react";
 import { useMemo } from "react";
 
@@ -67,16 +68,20 @@ export function compareSemver(startSemver: string, endSemver: string) {
   return "ok";
 }
 
+interface SerializedPackage extends Omit<Package, "createdAt" | "updatedAt"> {
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
 export interface AuditEntry {
-  id?: string; // db ID
-  name: string;
-  version: string;
-  isDev: boolean;
-  outdated: "major" | "minor" | "patch" | "ok";
-  latestVersion?: string;
-  targetVersion?: string;
-  versions?: string[];
-  npmPage?: string;
+  packageName: string;
+  package: SerializedPackage | null;
+  instance: {
+    isDev: boolean;
+    outdated: "major" | "minor" | "patch" | "ok";
+    version: string;
+    targetVersion: string;
+  };
 }
 
 export interface AuditResult {
@@ -107,12 +112,12 @@ export function npmInstallCmd(deps: AuditEntry[]) {
   let depString: string = "";
   let devString: string = "";
   deps.forEach((d) => {
-    const isLatest = d.latestVersion === d.targetVersion;
-    const version = isLatest ? "latest" : d.targetVersion ?? "latest";
-    if (d.isDev) {
-      devString += `${d.name}@${version} `;
+    const isLatest = d.package?.latestVersion === d.instance.targetVersion;
+    const version = isLatest ? "latest" : d.instance.targetVersion;
+    if (d.instance.isDev) {
+      devString += `${d.packageName}@${version} `;
     } else {
-      depString += `${d.name}@${version} `;
+      depString += `${d.packageName}@${version} `;
     }
   });
 

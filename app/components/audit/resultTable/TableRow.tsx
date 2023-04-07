@@ -22,16 +22,24 @@ export function TableRow({
   onTargetVersionChange,
   isDev,
 }: RowProps) {
-  const selected: boolean = selectedRecords[entry.name] ?? false;
-  const hidden: boolean = hiddenRecords[entry.name] ?? false;
+  const selected: boolean = selectedRecords[entry.packageName] ?? false;
+  const hidden: boolean = hiddenRecords[entry.packageName] ?? false;
 
   const availableVersions = React.useMemo(() => {
-    const hasLatest = entry.versions?.find((v) => v === entry.latestVersion);
-    if (hasLatest || !entry.latestVersion) {
-      return entry.versions ?? [];
+    const versions = entry.package?.versions.split(",") ?? [];
+    const hasLatest = versions?.find((v) => v === entry.package?.latestVersion);
+    if (hasLatest) {
+      return versions;
     }
-    return [entry.latestVersion, ...(entry.versions ?? [])];
-  }, [entry.versions, entry.latestVersion]);
+    return [
+      entry.package?.latestVersion ?? entry.instance.version,
+      ...(versions ?? []),
+    ];
+  }, [
+    entry.package?.versions,
+    entry.package?.latestVersion,
+    entry.instance.version,
+  ]);
 
   return (
     <tr
@@ -49,26 +57,28 @@ export function TableRow({
         />
       </td>
       <td className="border-r border-solid border-green-500 px-4 py-2">
-        {entry.name} {isDev && <DevChip />}
+        {entry.packageName} {isDev && <DevChip />}
       </td>
       <td
         className={clsx("border-r border-solid border-green-500 px-4 py-2", {
-          "font-semibold text-red-600": entry.outdated === "major",
-          "font-semibold text-orange-500": entry.outdated === "minor",
-          "font-semibold text-sky-600": entry.outdated === "patch",
-          "font-semibold text-green-500": entry.outdated === "ok",
+          "font-semibold text-red-600": entry.instance.outdated === "major",
+          "font-semibold text-orange-500": entry.instance.outdated === "minor",
+          "font-semibold text-sky-600": entry.instance.outdated === "patch",
+          "font-semibold text-green-500": entry.instance.outdated === "ok",
         })}
       >
-        {entry.version}
+        {entry.instance.version}
       </td>
       <td className="border-r border-solid border-green-500 px-4 py-2">
-        {entry.latestVersion ?? "Not Found"}
+        {entry.package?.latestVersion ?? "Not Found"}
       </td>
       <td className="border-r border-solid border-green-500 px-4 py-2">
-        {availableVersions.length && entry.latestVersion ? (
+        {availableVersions.length && entry.package?.latestVersion ? (
           <VersionSelect
             versions={availableVersions}
-            targetVersion={entry.targetVersion ?? entry.latestVersion}
+            targetVersion={
+              entry.instance.targetVersion ?? entry.package.latestVersion
+            }
             onVersionChange={(version) => onTargetVersionChange(entry, version)}
           />
         ) : (
@@ -76,11 +86,11 @@ export function TableRow({
         )}
       </td>
       <td className="border-r border-solid border-green-500 px-4 py-2">
-        {entry.npmPage ? (
+        {entry.package?.npmPage ? (
           <a
             target="_blank"
             rel="noreferrer"
-            href={entry.npmPage}
+            href={entry.package.npmPage}
             className="text-sky-600 underline"
           >
             npm

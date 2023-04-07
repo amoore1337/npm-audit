@@ -35,31 +35,33 @@ export function ResultTable({ result }: { result: AuditResult }) {
 
       if (!showHidden && Object.keys(hiddenRecords).length > 0) {
         filterVals.records = filterVals.records.filter(
-          (r) => !hiddenRecords[r.name]
+          (r) => !hiddenRecords[r.packageName]
         );
       }
 
       if (typeFilter === "dep") {
-        filterVals.records = filterVals.records.filter((r) => !r.isDev);
+        filterVals.records = filterVals.records.filter(
+          (r) => !r.instance.isDev
+        );
       } else if (typeFilter === "dev") {
-        filterVals.records = filterVals.records.filter((r) => r.isDev);
+        filterVals.records = filterVals.records.filter((r) => r.instance.isDev);
       }
 
       if (outdatedFilter === "major") {
         filterVals.records = filterVals.records.filter(
-          (r) => r.outdated === "major"
+          (r) => r.instance.outdated === "major"
         );
       } else if (outdatedFilter === "minor") {
         filterVals.records = filterVals.records.filter(
-          (r) => r.outdated === "minor"
+          (r) => r.instance.outdated === "minor"
         );
       } else if (outdatedFilter === "patch") {
         filterVals.records = filterVals.records.filter(
-          (r) => r.outdated === "patch"
+          (r) => r.instance.outdated === "patch"
         );
       } else if (outdatedFilter === "outdated") {
         filterVals.records = filterVals.records.filter(
-          (r) => r.outdated !== "ok"
+          (r) => r.instance.outdated !== "ok"
         );
       }
 
@@ -85,7 +87,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
   const activeRecords = React.useMemo(() => {
     const all: Record<string, AuditEntry> = {};
     for (const r of records) {
-      all[r.name] = r;
+      all[r.packageName] = r;
     }
     return all;
   }, [records]);
@@ -103,34 +105,34 @@ export function ResultTable({ result }: { result: AuditResult }) {
 
   const handleToggleSelect = (entry: AuditEntry) => {
     setSelectAll(false);
-    if (selectedRecords[entry.name]) {
+    if (selectedRecords[entry.packageName]) {
       setSelectedRecords((s) => {
-        delete s[entry.name];
+        delete s[entry.packageName];
         return { ...s };
       });
     } else {
       setSelectedRecords((s) => {
-        return { ...s, [entry.name]: true };
+        return { ...s, [entry.packageName]: true };
       });
     }
   };
 
   const handleToggleHidden = (entry: AuditEntry) => {
-    if (hiddenRecords[entry.name]) {
+    if (hiddenRecords[entry.packageName]) {
       setHiddenRecords((h) => {
-        delete h[entry.name];
+        delete h[entry.packageName];
         return { ...h };
       });
     } else {
       // Remove selected records when hiding
-      if (selectedRecords[entry.name]) {
+      if (selectedRecords[entry.packageName]) {
         setSelectedRecords((s) => {
-          delete s[entry.name];
+          delete s[entry.packageName];
           return { ...s };
         });
       }
       setHiddenRecords((h) => {
-        h[entry.name] = true;
+        h[entry.packageName] = true;
         return { ...h };
       });
     }
@@ -143,7 +145,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
       setSelectAll(false);
     } else {
       const all: Record<string, true> = {};
-      records.forEach((r) => (all[r.name] = true));
+      records.forEach((r) => (all[r.packageName] = true));
       setSelectedRecords(all);
       setSelectAll(true);
     }
@@ -161,14 +163,14 @@ export function ResultTable({ result }: { result: AuditResult }) {
     entry: AuditEntry,
     targetVersion: string
   ) => {
-    const record = activeRecords[entry.name];
+    const record = activeRecords[entry.packageName];
     if (!record) {
       return;
     }
-    record.targetVersion = targetVersion;
+    record.instance.targetVersion = targetVersion;
     setRecords((result) => {
       const existingIndex = result.records.findIndex(
-        (r) => r.name === record.name
+        (r) => r.packageName === record.packageName
       );
       if (existingIndex > -1) {
         result.records[existingIndex] = record;
@@ -256,14 +258,14 @@ export function ResultTable({ result }: { result: AuditResult }) {
           <tbody>
             {records.map((p, i) => (
               <TableRow
-                key={`${p.name}_${i}`}
+                key={`${p.packageName}_${i}`}
                 selectedRecords={selectedRecords}
                 onSelect={handleToggleSelect}
                 hiddenRecords={hiddenRecords}
                 onHide={handleToggleHidden}
                 onTargetVersionChange={handleUpdateTargetVersion}
                 entry={p}
-                isDev={p.isDev}
+                isDev={p.instance.isDev}
               />
             ))}
           </tbody>
