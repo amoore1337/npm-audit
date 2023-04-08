@@ -1,3 +1,4 @@
+import { ExternalLinkIcon } from "@radix-ui/react-icons";
 import clsx from "clsx";
 import React from "react";
 import { Button, Select, SelectItem } from "~/components/base";
@@ -91,9 +92,9 @@ export function TableRow({
             target="_blank"
             rel="noreferrer"
             href={entry.package.npmPage}
-            className="text-sky-600 underline"
+            className="flex items-end text-sky-600 underline hover:text-sky-700"
           >
-            npm
+            npm <ExternalLinkIcon className="ml-1" width={16} />
           </a>
         ) : (
           "Not Found"
