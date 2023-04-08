@@ -5,8 +5,11 @@ import { redis } from "./redis.server";
 
 invariant(process.env.SESSION_SECRET, "SESSION_SECRET must be set");
 
-interface SessionData {
-  auditReport: AuditReportRecord[];
+export interface UserSessionData {
+  auditReport: {
+    name: string;
+    records: AuditReportRecord[];
+  };
 }
 
 interface AuditReportRecord {
@@ -25,7 +28,7 @@ function expiresToSeconds(expires: Date) {
 }
 
 function createRedisSessionStorage() {
-  return createSessionStorage<SessionData>({
+  return createSessionStorage<UserSessionData>({
     cookie: {
       name: "__session",
       httpOnly: true,
@@ -72,6 +75,24 @@ function createRedisSessionStorage() {
 }
 
 export const sessionStorage = createRedisSessionStorage();
+
+export async function updateSession<Key extends keyof UserSessionData & string>(
+  request: Request,
+  name: Key,
+  value: UserSessionData[Key]
+) {
+  const session = await getSession(request);
+  session.set(name, value);
+  return await sessionStorage.commitSession(session);
+}
+
+export async function removeFromSession<
+  Key extends keyof UserSessionData & string
+>(request: Request, name: Key) {
+  const session = await getSession(request);
+  session.unset(name);
+  return await sessionStorage.commitSession(session);
+}
 
 export async function getSession(request: Request) {
   const cookie = request.headers.get("Cookie");

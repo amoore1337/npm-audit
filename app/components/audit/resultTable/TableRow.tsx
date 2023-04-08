@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import React from "react";
 import { Button, Select, SelectItem } from "~/components/base";
-import { type AuditEntry } from "~/utils";
+import { type AuditEntry } from "~/types";
 
 interface RowProps {
   entry: AuditEntry;

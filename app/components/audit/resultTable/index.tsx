@@ -1,18 +1,17 @@
-import {
-  DownloadIcon,
-  EyeClosedIcon,
-  EyeOpenIcon,
-} from "@radix-ui/react-icons";
+import { DownloadIcon, ResetIcon } from "@radix-ui/react-icons";
 import { Form } from "@remix-run/react";
+import clsx from "clsx";
 import React from "react";
 import { Button, Select, SelectItem, Toggle } from "~/components/base";
-import { npmInstallCmd, type AuditEntry, type AuditResult } from "~/utils";
+import { type AuditEntry, type AuditResult } from "~/types";
+import { npmInstallCmd } from "~/utils";
 import { TableRow } from "./TableRow";
 import { UpgradeCommand } from "./UpgradeCommand";
 
 type TypeFilter = "all" | "dep" | "dev";
 type OutdatedFilter = "major" | "minor" | "patch" | "outdated" | "all";
 
+export const resetReport = "resetReport";
 export const exportCsvFormAction = "export";
 
 export function ResultTable({ result }: { result: AuditResult }) {
@@ -70,7 +69,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
     [typeFilter, outdatedFilter, showHidden, hiddenRecords]
   );
 
-  const [{ records }, setRecords] = React.useState<AuditResult>(
+  const [{ records: visibleRecords }, setRecords] = React.useState<AuditResult>(
     filterResults(result)
   );
 
@@ -84,24 +83,30 @@ export function ResultTable({ result }: { result: AuditResult }) {
     setRecords(filterResults(result));
   }, [result, filterResults]);
 
-  const activeRecords = React.useMemo(() => {
+  const visibleRecordsMap = React.useMemo(() => {
     const all: Record<string, AuditEntry> = {};
-    for (const r of records) {
+    for (const r of visibleRecords) {
       all[r.packageName] = r;
     }
     return all;
-  }, [records]);
+  }, [visibleRecords]);
+
+  const outdatedRecordCount = React.useMemo(
+    () => visibleRecords.filter((r) => r.instance.outdated !== "ok").length,
+    [visibleRecords]
+  );
+  const outdatedPercent = outdatedRecordCount / visibleRecords.length;
 
   const installCmd = React.useMemo(() => {
     const selectedEntries = Object.keys(selectedRecords)
-      .map((r) => activeRecords[r])
+      .map((r) => visibleRecordsMap[r])
       .filter((r) => !!r);
     if (selectedEntries.length) {
       return npmInstallCmd(selectedEntries);
     } else {
       return "";
     }
-  }, [selectedRecords, activeRecords]);
+  }, [selectedRecords, visibleRecordsMap]);
 
   const handleToggleSelect = (entry: AuditEntry) => {
     setSelectAll(false);
@@ -145,7 +150,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
       setSelectAll(false);
     } else {
       const all: Record<string, true> = {};
-      records.forEach((r) => (all[r.packageName] = true));
+      visibleRecords.forEach((r) => (all[r.packageName] = true));
       setSelectedRecords(all);
       setSelectAll(true);
     }
@@ -163,7 +168,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
     entry: AuditEntry,
     targetVersion: string
   ) => {
-    const record = activeRecords[entry.packageName];
+    const record = visibleRecordsMap[entry.packageName];
     if (!record) {
       return;
     }
@@ -204,10 +209,17 @@ export function ResultTable({ result }: { result: AuditResult }) {
             <SelectItem value="patch">Patch Version Updates</SelectItem>
             <SelectItem value="outdated">Only Outdated</SelectItem>
           </Select>
-          <div className="ml-4 font-bold">
-            Showing <span className="text-sky-600">{records.length}</span> /{" "}
-            {result.records.length} packages
-          </div>
+          <Form method="post">
+            <Button
+              name="_action"
+              value={resetReport}
+              type="submit"
+              variant="secondary"
+              className="ml-4 flex items-center"
+            >
+              Reset <ResetIcon className="ml-2" />
+            </Button>
+          </Form>
           <Form method="post">
             <Button
               name="_action"
@@ -219,18 +231,30 @@ export function ResultTable({ result }: { result: AuditResult }) {
               Export to CSV <DownloadIcon className="ml-2" />
             </Button>
           </Form>
+          <div className="ml-4 font-bold">
+            Showing{" "}
+            <span className="text-sky-600">{visibleRecords.length}</span> /{" "}
+            {result.records.length} packages (
+            <span
+              className={clsx({
+                "text-green-500": outdatedPercent === 0,
+                "text-sky-600": outdatedPercent > 0 && outdatedPercent <= 0.2,
+                "text-orange-500":
+                  outdatedPercent > 0.2 && outdatedPercent <= 0.4,
+                "text-red-600": outdatedPercent > 0.4,
+              })}
+            >
+              {outdatedRecordCount} outdated
+            </span>
+            )
+          </div>
           {!!Object.keys(hiddenRecords).length && (
             <Toggle
               className="ml-4 flex items-center"
               pressed={showHidden}
               onPressedChange={(pressed) => setShowHidden(pressed)}
             >
-              {showHidden ? (
-                <EyeClosedIcon className="mr-2 mt-[2px]" />
-              ) : (
-                <EyeOpenIcon className="mr-2 mt-[2px]" />
-              )}{" "}
-              Hidden
+              {showHidden ? "Remove Hidden" : "Display Hidden"}
             </Toggle>
           )}
         </div>
@@ -256,7 +280,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
             </tr>
           </thead>
           <tbody>
-            {records.map((p, i) => (
+            {visibleRecords.map((p, i) => (
               <TableRow
                 key={`${p.packageName}_${i}`}
                 selectedRecords={selectedRecords}
