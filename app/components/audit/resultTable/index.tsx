@@ -1,5 +1,5 @@
 import { DownloadIcon, ResetIcon } from "@radix-ui/react-icons";
-import { Form } from "@remix-run/react";
+import { Form, Link } from "@remix-run/react";
 import clsx from "clsx";
 import React from "react";
 import { Button, Select, SelectItem, Toggle } from "~/components/base";
@@ -220,17 +220,16 @@ export function ResultTable({ result }: { result: AuditResult }) {
               Reset <ResetIcon className="ml-2" />
             </Button>
           </Form>
-          <Form method="post">
-            <Button
-              name="_action"
-              value={exportCsvFormAction}
-              type="submit"
-              variant="secondary"
-              className="ml-4 flex items-center"
-            >
-              Export to CSV <DownloadIcon className="ml-2" />
-            </Button>
-          </Form>
+          <Link
+            to="/auditExport"
+            reloadDocument
+            className={clsx(
+              "ml-4 flex items-center rounded border border-solid border-sky-600",
+              "bg-sky-100 px-3 py-1 text-sky-600 hover:bg-sky-200"
+            )}
+          >
+            Export to CSV <DownloadIcon className="ml-2" />
+          </Link>
           <div className="ml-4 font-bold">
             Showing{" "}
             <span className="text-sky-600">{visibleRecords.length}</span> /{" "}
