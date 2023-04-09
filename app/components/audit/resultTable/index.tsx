@@ -217,7 +217,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
               variant="secondary"
               className="ml-4 flex items-center"
             >
-              Reset <ResetIcon className="ml-2" />
+              Clear Report <ResetIcon className="ml-2" />
             </Button>
           </Form>
           <Link
@@ -233,19 +233,25 @@ export function ResultTable({ result }: { result: AuditResult }) {
           <div className="ml-4 font-bold">
             Showing{" "}
             <span className="text-sky-600">{visibleRecords.length}</span> /{" "}
-            {result.records.length} packages (
-            <span
-              className={clsx({
-                "text-green-500": outdatedPercent === 0,
-                "text-sky-600": outdatedPercent > 0 && outdatedPercent <= 0.2,
-                "text-orange-500":
-                  outdatedPercent > 0.2 && outdatedPercent <= 0.4,
-                "text-red-600": outdatedPercent > 0.4,
-              })}
-            >
-              {outdatedRecordCount} outdated
-            </span>
-            )
+            {result.records.length} packages
+            {outdatedFilter === "all" && (
+              <span className="ml-1">
+                (
+                <span
+                  className={clsx({
+                    "text-green-500": outdatedPercent === 0,
+                    "text-sky-600":
+                      outdatedPercent > 0 && outdatedPercent <= 0.2,
+                    "text-orange-500":
+                      outdatedPercent > 0.2 && outdatedPercent <= 0.4,
+                    "text-red-600": outdatedPercent > 0.4,
+                  })}
+                >
+                  {outdatedRecordCount} outdated
+                </span>
+                )
+              </span>
+            )}
           </div>
           {!!Object.keys(hiddenRecords).length && (
             <Toggle
