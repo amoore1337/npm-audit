@@ -186,7 +186,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
 
   return (
     <>
-      <div className="mb-4 flex h-[40px] flex-shrink-0 items-center justify-between">
+      <div className="mb-4 flex flex-shrink-0 flex-col items-center justify-center xl:flex-row xl:justify-between">
         <div className="flex items-center">
           <Select
             value={typeFilter}
