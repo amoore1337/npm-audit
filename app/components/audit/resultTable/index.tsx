@@ -187,7 +187,7 @@ export function ResultTable({ result }: { result: AuditResult }) {
   return (
     <>
       <div className="mb-4 flex flex-shrink-0 flex-col items-center justify-center xl:flex-row xl:justify-between">
-        <div className="flex items-center">
+        <div className="flex h-[40px] items-center">
           <Select
             value={typeFilter}
             onValueChange={handleTypeFilter}
@@ -234,24 +234,25 @@ export function ResultTable({ result }: { result: AuditResult }) {
             Showing{" "}
             <span className="text-sky-600">{visibleRecords.length}</span> /{" "}
             {result.records.length} packages
-            {outdatedFilter === "all" && (
-              <span className="ml-1">
-                (
-                <span
-                  className={clsx({
-                    "text-green-500": outdatedPercent === 0,
-                    "text-sky-600":
-                      outdatedPercent > 0 && outdatedPercent <= 0.2,
-                    "text-orange-500":
-                      outdatedPercent > 0.2 && outdatedPercent <= 0.4,
-                    "text-red-600": outdatedPercent > 0.4,
-                  })}
-                >
-                  {outdatedRecordCount} outdated
+            {outdatedFilter === "all" &&
+              !Object.keys(selectedRecords).length && (
+                <span className="ml-1">
+                  (
+                  <span
+                    className={clsx({
+                      "text-green-500": outdatedPercent === 0,
+                      "text-sky-600":
+                        outdatedPercent > 0 && outdatedPercent <= 0.2,
+                      "text-orange-500":
+                        outdatedPercent > 0.2 && outdatedPercent <= 0.4,
+                      "text-red-600": outdatedPercent > 0.4,
+                    })}
+                  >
+                    {outdatedRecordCount} outdated
+                  </span>
+                  )
                 </span>
-                )
-              </span>
-            )}
+              )}
           </div>
           {!!Object.keys(hiddenRecords).length && (
             <Toggle
