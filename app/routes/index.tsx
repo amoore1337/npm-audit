@@ -1,11 +1,15 @@
 import { Link } from "@remix-run/react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
+import { Logo } from "~/components/audit";
 
 export default function Index() {
   return (
     <main className="relative flex min-h-screen flex-col items-center bg-white p-10 text-gray-800">
-      <h1 className="pb-4 text-2xl font-semibold">Audit NPM Dependencies</h1>
+      <div className="relative flex items-center pb-4">
+        <Logo className="absolute -ml-12" />
+        <h1 className="text-2xl font-semibold">Audit NPM Dependencies</h1>
+      </div>
 
       <p className="w-full max-w-[800px] pb-4">
         Yep, the npm cli already has commands for <Code>npm outdated</Code> and{" "}

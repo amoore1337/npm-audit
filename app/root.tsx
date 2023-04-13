@@ -15,6 +15,18 @@ export const links: LinksFunction = () => {
   return [
     { rel: "stylesheet", href: tailwindStylesheetUrl },
     { rel: "stylesheet", href: sharedStylesheetUrl },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "16x16",
+      href: "/favicon.png",
+    },
+    {
+      rel: "icon",
+      type: "image/png",
+      sizes: "32x32",
+      href: "/favicon_32.png",
+    },
   ];
 };
 
